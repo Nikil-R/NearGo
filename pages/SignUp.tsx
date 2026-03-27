@@ -1,18 +1,27 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight, Chrome, Github } from 'lucide-react';
+<<<<<<< HEAD
 import { signUpWithGoogle } from '../lib/firebase';
+=======
+import { signUpWithGoogle, signUpWithEmail } from '../lib/firebase';
+>>>>>>> 9c56113 (Initial commit with fixed authentication, Gemini SDK, and Groq fallback)
 
 export const SignUp: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+<<<<<<< HEAD
+=======
+  const [error, setError] = useState<string | null>(null);
+>>>>>>> 9c56113 (Initial commit with fixed authentication, Gemini SDK, and Groq fallback)
   const navigate = useNavigate();
 
   const handleGoogleLogin = async () => {
     try {
       await signUpWithGoogle();
       navigate('/');
+<<<<<<< HEAD
     } catch (error) {
       console.error("Signup failed", error);
     }
@@ -23,6 +32,24 @@ export const SignUp: React.FC = () => {
      // Email/Password auth not implemented yet. 
     // You would use createUserWithEmailAndPassword from firebase/auth here.
     alert("Please sign up with Google for now.");
+=======
+    } catch (err: any) {
+      console.error("Signup failed", err);
+      setError(err.message || "Failed to sign up with Google");
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      await signUpWithEmail(email, password, name);
+      navigate('/');
+    } catch (err: any) {
+      console.error("Signup failed", err);
+      setError(err.message || "Failed to create account. Please try again.");
+    }
+>>>>>>> 9c56113 (Initial commit with fixed authentication, Gemini SDK, and Groq fallback)
   };
 
   return (
@@ -34,6 +61,14 @@ export const SignUp: React.FC = () => {
         </div>
 
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 space-y-6">
+<<<<<<< HEAD
+=======
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-medium animate-shake">
+              {error}
+            </div>
+          )}
+>>>>>>> 9c56113 (Initial commit with fixed authentication, Gemini SDK, and Groq fallback)
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 ml-1">Full Name</label>

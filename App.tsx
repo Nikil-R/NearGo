@@ -5,7 +5,6 @@ import { Planner } from './components/Planner';
 import { SignIn } from './pages/SignIn';
 import { SignUp } from './pages/SignUp';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 
 const Home: React.FC = () => {
   return (
@@ -53,7 +52,6 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID">
       <AuthProvider>
         <Router>
           <div className="min-h-screen flex flex-col bg-[#fafbfc]">
@@ -68,7 +66,6 @@ const App: React.FC = () => {
           </div>
         </Router>
       </AuthProvider>
-    </GoogleOAuthProvider>
   );
 };
 

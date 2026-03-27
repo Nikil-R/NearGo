@@ -1,44 +1,43 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { UserLocation, UserPreferences, Trip, TravelMethod } from '../types';
 
-// Initialize Gemini
 // Initialize Gemini lazily
 const getAI = () => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
-    console.error("Gemini API Key is missing! Check your .env.local or Vercel Environment Variables.");
+    console.error("Gemini API Key is missing!");
     throw new Error("Missing Gemini API Key");
   }
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenerativeAI(apiKey);
 };
 
-const TRIP_SCHEMA: Schema = {
-  type: Type.OBJECT,
+const TRIP_SCHEMA = {
+  type: SchemaType.OBJECT,
   properties: {
     trips: {
-      type: Type.ARRAY,
+      type: SchemaType.ARRAY,
       items: {
-        type: Type.OBJECT,
+        type: SchemaType.OBJECT,
         properties: {
-          id: { type: Type.STRING },
-          name: { type: Type.STRING, description: "Specific Name of the place (e.g. 'The Old Book Cellar', not just 'Bookstore')" },
-          type: { type: Type.STRING, description: "Category e.g., Speakeasy, Ruin, hidden Garden, Oddity" },
-          description: { type: Type.STRING, description: "Engaging description explaining WHY it is a hidden gem. Mention specific details." },
-          travelTimeMinutes: { type: Type.NUMBER, description: "Realistic one-way travel time in minutes considering traffic/mode." },
-          stayTimeMinutes: { type: Type.NUMBER, description: "Recommended duration of stay in minutes" },
-          totalTimeMinutes: { type: Type.NUMBER, description: "Total trip duration including travel" },
-          score: { type: Type.NUMBER, description: "Relevance score from 1-100 based on uniqueness" },
+          id: { type: SchemaType.STRING },
+          name: { type: SchemaType.STRING, description: "Specific Name of the place" },
+          type: { type: SchemaType.STRING, description: "Category" },
+          description: { type: SchemaType.STRING, description: "Engaging description" },
+          travelTimeMinutes: { type: SchemaType.NUMBER, description: "One-way travel time" },
+          stayTimeMinutes: { type: SchemaType.NUMBER, description: "Duration of stay" },
+          totalTimeMinutes: { type: SchemaType.NUMBER, description: "Total duration" },
+          score: { type: SchemaType.NUMBER, description: "Relevance score" },
           itinerary: { 
-            type: Type.ARRAY, 
-            items: { type: Type.STRING },
-            description: "3-4 bullet points for a mini-itinerary"
+            type: SchemaType.ARRAY, 
+            items: { type: SchemaType.STRING },
+            description: "3-4 bullet points"
           },
-          reason: { type: Type.STRING, description: "Cite the simulated source or specific quality (e.g. 'Rated #1 on local spicy food forum', 'Bib Gourmand hidden pick')." },
+          reason: { type: SchemaType.STRING, description: "Why this place?" },
           coordinates: {
-            type: Type.OBJECT,
+            type: SchemaType.OBJECT,
             properties: {
-              lat: { type: Type.NUMBER, description: "Latitude of the destination" },
-              lng: { type: Type.NUMBER, description: "Longitude of the destination" }
+              lat: { type: SchemaType.NUMBER, description: "Latitude" },
+              lng: { type: SchemaType.NUMBER, description: "Longitude" }
             },
             required: ["lat", "lng"]
           }
@@ -124,7 +123,7 @@ export const generateTrips = async (
     return resultCache.get(cacheKey)!;
   }
 
-  const modelId = "gemini-2.5-flash"; 
+  const modelId = "gemini-1.5-flash"; 
 
   const isManualLocation = location.lat === 0 && location.lng === 0;
 
@@ -149,7 +148,7 @@ export const generateTrips = async (
        - Focus on iconic local dishes, viral food spots, or highly-rated institutions.
        - Variety Ratio: 4x Popular/Iconic, 2x Local Favorites.
      `
-    : `
+     : `
       **CRITICAL PRIORITY: SURFACING "THE BEST UNDERRATED" PLACES.**
       Do not suggest random low-quality obscure places. We want high-quality, high-character spots that are currently flying under the radar.
 
@@ -184,63 +183,137 @@ export const generateTrips = async (
     🚨 **SEARCH-READY PROTOCOL - READ CAREFULLY** 🚨:
     
     1. **SEARCHABLE NAMES**: 
-       - The 'name' field MUST be formatted for a Google Maps Search.
        - FORMAT: "[Place Name], [Neighborhood/Specific Area], [City]"
        - Example: "The Hole in the Wall Cafe, Koramangala, Bangalore"
-       - This is how the app will find the location. If the name is vague, navigation will fail.
     
     2. **GEOGRAPHIC LOCK**: 
-       - Every place MUST be within ${prefs.travelMethod === 'Walk' ? '3km' : prefs.travelMethod === 'Bike' ? '8km' : '15km'} of ${locationStr}.
-       - Do NOT suggest places on the other side of the city.
+       - Within ${prefs.travelMethod === 'Walk' ? '3km' : prefs.travelMethod === 'Bike' ? '8km' : '15km'} of ${locationStr}.
     
-    3. **VERIFIED REAL PLACES**: 
-       - hallucinations are forbidden. Suggest ONLY actual, permanent businesses or landmarks that are searchable on Google Maps as of today.
-    
-    4. **COORDINATES AS BACKUP**:
-       - Provide coordinates as an additional verification, but the NAME is the primary search key.
-    
-    STRATEGY: Balanced Discovery
-    - 3x "Hidden Gems" (High quality, low review count, local secret).
-    - 2x "Popular Staples" (Local favorites, busy but worth it, high reputation).
-    - 1x "Wildcard" (Unique, quirky, or specific to the "${prefs.mood}" vibe).
-    
-    Quality Bar: Every place must be high-quality (equivalent to 4.4+ stars).
+    3. **OUTPUT FORMAT**:
+       Return strictly JSON in this format:
+       {
+         "trips": [
+           {
+             "id": "unique-id",
+             "name": "Full Searchable Name",
+             "type": "Place Category",
+             "description": "Short engaging description",
+             "travelTimeMinutes": number,
+             "stayTimeMinutes": number,
+             "totalTimeMinutes": number,
+             "score": 1-100,
+             "itinerary": ["step 1", "step 2", "step 3"],
+             "reason": "Why this place?",
+             "coordinates": { "lat": number, "lng": number }
+           }
+         ]
+       }
 
     ${coreStrategy}
 
     TRAVEL TIME CALCULATION:
-    - Estimate travel time realistically.
-
-    OUTPUT:
-    Return strictly JSON matching the schema. Use specific, searchable names.
+    - Estimate travel time realistically based on ${prefs.travelMethod}.
   `;
 
   try {
-    const response = await getAI().models.generateContent({
+    const genAI = getAI();
+    const model = genAI.getGenerativeModel({ 
       model: modelId,
-      contents: prompt,
-      config: {
+      generationConfig: {
         responseMimeType: "application/json",
-        responseSchema: TRIP_SCHEMA,
-        temperature: 0, 
-        systemInstruction: isFoodiePopular 
-           ? "You are a local foodie guide who knows all the most popular, must-visit, and top-rated restaurants."
-           : "You are the ultimate 'Local Insider'. You ignore the Top 10 lists found on TripAdvisor. Instead, you scrape local forums, old blogs, and neighborhood whispers to find the absolute best underrated spots. You care about quality, authenticity, and soul. You despise tourist traps."
-      },
+      }
     });
 
-    const jsonText = response.text;
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        // @ts-ignore
+        responseSchema: TRIP_SCHEMA,
+      },
+      systemInstruction: isFoodiePopular 
+           ? "You are a local foodie guide who knows all the most popular, must-visit, and top-rated restaurants."
+           : "You are the ultimate 'Local Insider'. You ignore the Top 10 lists found on TripAdvisor. Instead, you scrape local forums, old blogs, and neighborhood whispers to find the absolute best underrated spots. You care about quality, authenticity, and soul. You despise tourist traps."
+    });
+
+    const response = await result.response;
+    const jsonText = response.text();
+    
     if (!jsonText) throw new Error("No data received from Gemini");
 
-    const parsed = JSON.parse(jsonText);
-    const rawTrips: Trip[] = parsed.trips || [];
+    console.log("Raw Gemini JSON:", jsonText);
+    const parsed = JSON.parse(cleanJson(jsonText));
+    return processRawTrips(parsed.trips || [], isManualLocation, location, prefs, cacheKey);
 
-    // --- Verification & Correction Logic ---
+  } catch (error) {
+    console.warn("Gemini API Error, trying Groq fallback:", error);
+    try {
+        const groqTrips = await generateWithGroq(prompt, isFoodiePopular);
+        return processRawTrips(groqTrips, isManualLocation, location, prefs, cacheKey);
+    } catch (groqError) {
+        console.error("Groq Fallback Error:", groqError);
+        throw error; // Throw original Gemini error if Groq also fails
+    }
+  }
+};
+
+const generateWithGroq = async (prompt: string, isFoodiePopular: boolean): Promise<Trip[]> => {
+    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+    if (!apiKey) throw new Error("Groq API Key missing");
+
+    const systemPrompt = isFoodiePopular 
+        ? "You are a local foodie guide. Return strictly JSON matching the requested schema."
+        : "You are a local insider guide specializing in hidden gems. Return strictly JSON matching the requested schema.";
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: prompt + "\n\nIMPORTANT: Return ONLY a valid JSON object with a 'trips' array. Use the specific schema provided." }
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0
+        })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Groq API Error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content;
+    if (!content) throw new Error("Empty response from Groq");
+
+    console.log("Raw Groq JSON:", content);
+    const parsed = JSON.parse(cleanJson(content));
+    return parsed.trips || [];
+};
+
+const cleanJson = (text: string): string => {
+    // Remove markdown code blocks if present
+    return text.replace(/```json/g, "").replace(/```/g, "").trim();
+};
+
+const processRawTrips = (
+    rawTrips: Trip[], 
+    isManualLocation: boolean, 
+    location: UserLocation, 
+    prefs: UserPreferences,
+    cacheKey: string
+): Trip[] => {
+    const maxOneWayMinutes = Math.floor((prefs.timeAvailable * 60) * 0.25);
+
     const verifiedTrips = rawTrips.map(trip => {
       let finalTravelTime = trip.travelTimeMinutes;
       let distKm = 0;
 
-      // Only perform physics checks if we have valid start coordinates
       if (!isManualLocation) {
         distKm = calculateDistance(
           location.lat, 
@@ -249,18 +322,11 @@ export const generateTrips = async (
           trip.coordinates.lng
         );
 
-        // Calculate a "Sanity Check" time based on physics
         const physicsTime = estimatePhysicsTime(distKm, prefs.travelMethod);
 
-        // Logic:
-        // If Gemini suggests a time that is physically impossible (e.g., flying speed), clamp it to the physics time.
-        // We define "impossible" as being less than 60% of the conservative physics estimate.
-        // Otherwise, trust Gemini (it knows about traffic, rivers, one-ways better than Haversine).
         if (trip.travelTimeMinutes < physicsTime * 0.6) {
            finalTravelTime = physicsTime;
         } else {
-           // If reasonable, stick with Gemini, but maybe average it if it's very different? 
-           // Actually, just trusting Gemini with a lower bound is safest.
            finalTravelTime = Math.max(trip.travelTimeMinutes, physicsTime * 0.8);
         }
       }
@@ -272,26 +338,21 @@ export const generateTrips = async (
         _distKm: distKm 
       };
     }).filter(trip => {
-      // If manual location, we trust Gemini's filtering implicitly as we can't calc distance
       if (isManualLocation) return true;
-
-      // Strict Filtering for GPS users
-      // Allow a small buffer over the budget
-      const maxAllowedTravel = maxOneWayMinutes + 15; 
       
-      // Distance filter: Strict proximity (Max 12km for sanity)
-      const maxDist = prefs.travelMethod === 'Car' ? 15 : 8;
+      // More lenient filtering:
+      // Allow a larger buffer (30 mins instead of 15)
+      const maxAllowedTravel = maxOneWayMinutes + 30; 
+      
+      // Distance filter: Allow up to 25km for Car, 12km rest
+      const maxDist = prefs.travelMethod === 'Car' ? 25 : 12;
       const isWithinDistance = (trip as any)._distKm <= maxDist; 
 
-      return trip.travelTimeMinutes <= maxAllowedTravel && isWithinDistance;
+      const ok = trip.travelTimeMinutes <= maxAllowedTravel && isWithinDistance;
+      if (!ok) console.log("Filtered out trip:", trip.name, "Dist:", (trip as any)._distKm, "Time:", trip.travelTimeMinutes);
+      return ok;
     });
 
-    // Save to cache before returning
     resultCache.set(cacheKey, verifiedTrips);
     return verifiedTrips;
-
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    throw error;
-  }
 };

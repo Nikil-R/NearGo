@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword } from "firebase/auth";
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -35,8 +35,6 @@ try {
   console.error("Error initializing Firebase:", error);
 }
 
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-
 export { auth, googleProvider, db, analytics };
 
 // Auth Helper Functions
@@ -53,8 +51,6 @@ export const signInWithGoogle = async () => {
         const userDoc = await getDoc(userDocRef);
 
         if (!userDoc.exists()) {
-            // New user trying to login via Sign In page
-            // We MUST sign them out so they are not authenticated in the session
             await signOut(auth);
             throw new Error("User not found. Please sign up first.");
         }
@@ -73,11 +69,9 @@ export const signUpWithGoogle = async () => {
         const result = await signInWithPopup(auth, googleProvider);
         const user = result.user;
 
-        // Create user document in Firestore
         const userDocRef = doc(db, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
         
-        // If user already exists, just update last login
         if (userDoc.exists()) {
              await setDoc(userDocRef, {
                 lastLogin: serverTimestamp()
@@ -85,7 +79,6 @@ export const signUpWithGoogle = async () => {
             return user;
         }
 
-        // Only create new doc if it doesn't exist
         await setDoc(userDocRef, {
             uid: user.uid,
             name: user.displayName,
@@ -98,6 +91,44 @@ export const signUpWithGoogle = async () => {
         return user;
     } catch (error) {
         console.error("Error signing up with Google", error);
+        throw error;
+    }
+};
+
+// 3. Email Sign Up: Creates new user with email/password
+export const signUpWithEmail = async (email: string, password: string, name: string) => {
+    if (!auth || !db) throw new Error("Firebase not initialized");
+    try {
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        const user = result.user;
+
+        await updateProfile(user, { displayName: name });
+
+        const userDocRef = doc(db, "users", user.uid);
+        await setDoc(userDocRef, {
+            uid: user.uid,
+            name: name,
+            email: email,
+            photoURL: null,
+            createdAt: serverTimestamp(),
+            lastLogin: serverTimestamp()
+        }, { merge: true });
+
+        return user;
+    } catch (error) {
+        console.error("Error signing up with email", error);
+        throw error;
+    }
+};
+
+// 4. Email Sign In
+export const signInWithEmail = async (email: string, password: string) => {
+    if (!auth || !db) throw new Error("Firebase not initialized");
+    try {
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        return result.user;
+    } catch (error) {
+        console.error("Error signing in with email", error);
         throw error;
     }
 };

@@ -2,11 +2,19 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Github, Chrome } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+<<<<<<< HEAD
 import { signInWithGoogle } from '../lib/firebase';
+=======
+import { signInWithGoogle, signInWithEmail } from '../lib/firebase';
+>>>>>>> 9c56113 (Initial commit with fixed authentication, Gemini SDK, and Groq fallback)
 
 export const SignIn: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+<<<<<<< HEAD
+=======
+  const [error, setError] = useState<string | null>(null);
+>>>>>>> 9c56113 (Initial commit with fixed authentication, Gemini SDK, and Groq fallback)
   const navigate = useNavigate();
 
   const handleGoogleLogin = async () => {
@@ -14,23 +22,46 @@ export const SignIn: React.FC = () => {
       // The signInWithGoogle function throws if the user document is not found
       await signInWithGoogle();
       navigate('/');
+<<<<<<< HEAD
     } catch (error: any) {
       console.error("Login failed", error);
       if (error.message.includes("User not found")) {
+=======
+    } catch (err: any) {
+      console.error("Login failed", err);
+      if (err.message?.includes("User not found")) {
+>>>>>>> 9c56113 (Initial commit with fixed authentication, Gemini SDK, and Groq fallback)
         // Show clear alert and redirect to signup
         alert("⚠️ ACCESS DENIED: Account not found! \n\nPlease go to the SIGN UP page to create a new account.");
         navigate('/signup');
       } else {
+<<<<<<< HEAD
         alert("Login failed. Please try again.");
+=======
+        setError(err.message || "Login failed. Please try again.");
+>>>>>>> 9c56113 (Initial commit with fixed authentication, Gemini SDK, and Groq fallback)
       }
     }
   };
 
+<<<<<<< HEAD
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Email/Password auth not implemented yet. 
     // You would use signInWithEmailAndPassword from firebase/auth here.
     alert("Please sign in with Google for now.");
+=======
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      await signInWithEmail(email, password);
+      navigate('/');
+    } catch (err: any) {
+      console.error("Login failed", err);
+      setError(err.message || "Invalid email or password.");
+    }
+>>>>>>> 9c56113 (Initial commit with fixed authentication, Gemini SDK, and Groq fallback)
   };
 
   return (
@@ -42,6 +73,14 @@ export const SignIn: React.FC = () => {
         </div>
 
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 space-y-6">
+<<<<<<< HEAD
+=======
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-medium animate-shake">
+              {error}
+            </div>
+          )}
+>>>>>>> 9c56113 (Initial commit with fixed authentication, Gemini SDK, and Groq fallback)
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 ml-1">Email address</label>
